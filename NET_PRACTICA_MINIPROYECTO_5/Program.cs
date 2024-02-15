@@ -148,13 +148,15 @@ app.UseCors(MyAllowSpecificOrigins);
 
 app.UseHttpsRedirection();
 
-app.UseWhen(context => context.Request.Path.StartsWithSegments("/Show"), adminApp =>
+app.UseWhen(context => context.Request.Path.StartsWithSegments("/Show") ||
+context.Request.Path.StartsWithSegments("/Information"), adminApp =>
 {
     adminApp.UseMiddleware<JwtExpirationValidationMiddleware>();
 });
 
 
-app.UseWhen(context => context.Request.Path.StartsWithSegments("/Show"), adminApp =>
+app.UseWhen(context => context.Request.Path.StartsWithSegments("/Show") || 
+context.Request.Path.StartsWithSegments("/Information"), adminApp =>
 {
     adminApp.UseMiddleware<SessionExpirationValidationMiddleware>();
 

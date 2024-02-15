@@ -13,6 +13,8 @@
         public string Date { get; set; } = string.Empty;
     }
     //La idea es tener 2 clases totalmente moldeadas para envio tanto del back al front y del front al back
+    //writing cuando se envia al cliente (recivice info de sql y se envia al cliente)
+    //reading cunaod se recive del cliente (recive info del cliente y envia a sql)
     public class Product_Reading
     {
         public int IdProduct { get; set; }

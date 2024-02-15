@@ -17,6 +17,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
         public bool IsEmailValid(string email);
         public ClaimsPrincipal? ValidateTokenJwt(string token);
         public bool ValidateExpirationRefreshToken(int idUser);
+        public void CreateCookieIsLoggin();
     }
 
     public class AuthTokenService : IAuthTokenService
@@ -27,11 +28,11 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
         private readonly SqlConnection _connection;
 
         public AuthTokenService(
-            IHttpContextAccessor httpContextAccessor, 
-            IConfiguration configuration, 
-            IAntiforgery antiforgery, 
+            IHttpContextAccessor httpContextAccessor,
+            IConfiguration configuration,
+            IAntiforgery antiforgery,
             IDbConnectionFactory dbConnectionFactory
-            
+
             )
         {
             _httpContextAccessor = httpContextAccessor;
@@ -43,7 +44,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
 
         public string CreateJwtToken(int IdUser)
         {
-            DateTime Expiration = DateTime.Now.AddSeconds(10);
+            DateTime Expiration = DateTime.Now.AddMonths(1);
 
             List<Claim> claims = new List<Claim>()
             {
@@ -70,7 +71,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
             _httpContextAccessor.HttpContext!.Response.Cookies.Append("JWT-TOKEN", jwt,
                 new CookieOptions
                 {
-                    //Expires = Expiration,
+                    Expires = Expiration,
                     HttpOnly = true,
                     Path = "/",
                     Secure = true,
@@ -83,16 +84,16 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
 
         public ClaimsPrincipal? ValidateTokenJwt(string token)
         {
-            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+            JwtSecurityTokenHandler tokenHandler = new();
 
-            TokenValidationParameters validationParameters = new TokenValidationParameters
+            TokenValidationParameters validationParameters = new()
             {
                 ValidateIssuerSigningKey = true,
                 ValidateAudience = true,
                 ValidateIssuer = true,
                 ValidateLifetime = true,
                 ValidIssuer = "https://localhost:7777/",
-                ValidAudience = "https://localhost:7777/Show",
+                ValidAudience = "https://localhost:7777/Show/",
                 ClockSkew = TimeSpan.Zero,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("Appsettings:Token").Value!)),
             };
@@ -128,7 +129,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
             DateTime? RefreshTokenExpiration = null;
 
             string Query = "SELECT Expiration FROM refreshToken WHERE idToken = (SELECT idToken FROM users WHERE idUser = @idUser)";
-             _connection.Open();
+            _connection.Open();
 
             try
             {
@@ -153,7 +154,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
             catch (Exception ex)
             {
                 _httpContextAccessor.HttpContext!.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                _httpContextAccessor.HttpContext.Response.ContentType = "text/plain";
+                //_httpContextAccessor.HttpContext.Response.ContentType = "text/plain";
                 _httpContextAccessor.HttpContext.Response.WriteAsync($"Error en ValidateExpirationRefreshToken: {ex.Message}");
                 return false;
             }
@@ -170,6 +171,18 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
             _httpContextAccessor.HttpContext!.Session.SetString("CSRF_TOKEN", tokens.RequestToken!);
 
             return tokens.RequestToken!;
+        }
+
+        public void CreateCookieIsLoggin()
+        {
+            _httpContextAccessor.HttpContext!.Response.Cookies.Append("UserSession", "1",
+              new CookieOptions
+              {
+                  HttpOnly = false,
+                  Path = "/",
+                  Secure = true,
+                  SameSite = SameSiteMode.None
+              });
         }
 
 

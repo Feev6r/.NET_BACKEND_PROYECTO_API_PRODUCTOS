@@ -29,13 +29,14 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Attributes
             {
                 if (!Equals(context.HttpContext.Request.Headers["X-Csrf-Token"], csrfToken))
                 {
-                    context.Result = new BadRequestObjectResult("Credenciales incorrectas.");
+                    context.Result = new UnauthorizedObjectResult(new { message = "Credenciales incorrectas." });
+                    
 
                 }
             }
             else
             {
-                context.Result = new BadRequestObjectResult("Credenciales incompletas.");
+                context.Result = new UnauthorizedObjectResult(new {message = "Credenciales incompletas." });
             }
 
             //context.Result = new BadRequestObjectResult("Algo salio mal...");

@@ -14,20 +14,31 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Middleware
 
         public async Task Invoke(HttpContext context)
         {
-
-            if (context.Session != null && context.Session.IsAvailable)
+            try
             {
 
-                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                context.Response.ContentType = "text/plain";
-                await context.Response.WriteAsync($"Ocurrio un error con la session.");
-                return;
-
+                if (context.Session.GetString("CSRF_TOKEN") != null && context.Session.IsAvailable)
+                {
+                    await _next(context);
+                }
+                else
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    context.Response.ContentType = "text/plain";
+                    await context.Response.WriteAsync($"Ocurrio un error con la session.");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+               await context.Response.WriteAsync($"Error en session: {ex.Message}");
             }
 
-            //FALTA: controlar cuando una cookie es eliminada en el cliente
 
-            await _next(context);
+       
+            //NOTA: El isAvailable solo comprueba si hay perdida con la base datos o esta mal configurada la session, no es necesario
+            //en este caso por es lo que hay, y un catch por si las moscas (QUITAR ANTES DE SUBIR EL PROYECTO), este middleware es muy inecesario
+
         }
     }
 }

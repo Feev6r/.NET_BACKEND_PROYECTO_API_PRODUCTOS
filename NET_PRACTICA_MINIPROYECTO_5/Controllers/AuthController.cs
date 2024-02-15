@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NET_PRACTICA_MINIPROYECTO_5.Attributes;
 using NET_PRACTICA_MINIPROYECTO_5.Models;
 using NET_PRACTICA_MINIPROYECTO_5.Services;
 using System.Data;
@@ -121,7 +122,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
                     if (Exist == 0) //Verficacion Nombre
                     {
-                        return BadRequest("Nombre o Contraseña incorrectos");
+                        return BadRequest("Nombre o Contraseña incorrectos :D");
                     }
 
                     user.Password = reader.GetString("Password");
@@ -134,14 +135,20 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
                 //Verificacion Constraseña
                 if (!BCrypt.Net.BCrypt.Verify(userLogin.Password, user.Password))
                 {
-                    return BadRequest("Nombre o Contraseña incorrectos");
+                    return BadRequest("Nombre o Contraseña incorrectos :D");
                 }
+
 
                 //Creacion Token JWT
                 _authTokenService.CreateJwtToken(user.Id);
+
                 //Refresh Token
                 _refreshTokenService.GenerteRefreshToken(user.Id);
-                //Token Csrf
+                
+                //Creamos Cookie isloggin para hacerle saber al backend que ya estamos registrados
+                _authTokenService.CreateCookieIsLoggin();
+
+                //Devolvemos token Csrf
                 return Ok(_authTokenService.CreateCsrfToken());
 
             }
@@ -152,9 +159,9 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
         }
 
         //en constuccion ----
-        [HttpPost, Authorize]
+        [HttpPost, Authorize, ValidateTokensCsrf]
         [Route("logout")]
-        public IActionResult Logout()
+        public ActionResult Logout()
         {
             try
             {
@@ -164,19 +171,46 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
                         {
                             Expires = DateTime.Now.AddDays(-1),
                             HttpOnly = true,
-                            Path = "Show/Productos",
+                            Path = "/",
                             Secure = true,
                             SameSite = SameSiteMode.None
                         });
 
-                //-----FALTA----
-                //eliminar todo, token scrf, session completa con cookie, refresh token cookie.
 
-                return Ok("HECHO Y DERECHO");
+                HttpContext.Response.Cookies.Append("refreshToken", "VOID",
+                        new CookieOptions
+                        {
+                            Expires = DateTime.Now.AddDays(-1),
+                            HttpOnly = true,
+                            Path = "/",
+                            Secure = true,
+                            SameSite = SameSiteMode.None
+                        });
+
+                HttpContext.Response.Cookies.Append(".AspNetCore.Session", "VOID",
+                        new CookieOptions
+                        {
+                            Expires = DateTime.Now.AddDays(-1),
+                            HttpOnly = true,
+                            Path = "/",
+                            Secure = true,
+                            SameSite = SameSiteMode.None
+                        });
+                HttpContext.Response.Cookies.Append("UserSession", "VOID",
+                        new CookieOptions
+                        {
+                            Expires = DateTime.Now.AddDays(-1),
+                            HttpOnly = true,
+                            Path = "/",
+                            Secure = true,
+                            SameSite = SameSiteMode.None
+                        });
+
+                return Ok(new {message = "Hecho y derecho"});
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new {message = $"Error at logout {ex.Message}"});
             }
 
         }

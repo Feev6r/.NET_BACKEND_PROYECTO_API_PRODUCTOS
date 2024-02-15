@@ -22,13 +22,13 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
         private readonly ILogger<ProductsController> _logger;
 
         public ProductsController(
-            IConfiguration configuration 
-            ,IDbConnectionFactory dbConnectionFactory,
-            IAntiforgery antiforgery, 
-            ILogger<ProductsController> logger, 
+            IConfiguration configuration
+            , IDbConnectionFactory dbConnectionFactory,
+            IAntiforgery antiforgery,
+            ILogger<ProductsController> logger,
             IRefreshTokenService refreshTokenService
-            
-            ) 
+
+            )
         {
             _configuration = configuration;
             _connection = dbConnectionFactory.CreateConnection();
@@ -37,18 +37,23 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             _refreshTokenService = refreshTokenService;
         }
 
-        [HttpGet,Authorize]
-        [ValidateTokensCsrf]
+        [HttpGet, Authorize, ValidateTokensCsrf]
         [Route("Productos")]
         public async Task<IActionResult> MostrarProductos()
         {
 
             List<Product_Writing> productos = new();
 
-            string consulta = "SELECT pd.idProduct, us.Name as Author, pd.Title, pd.Description, pd.Stock, pd.Price, pd.Date, " +
-                "(SELECT ct.Name FROM categories ct INNER JOIN products pd on ct.idCategory = pd.idCategory) as Category," +
-                "(SELECT ct.idCategory FROM categories ct INNER JOIN products pd on ct.idCategory = pd.idCategory) as idCategory FROM users us " +
-                "INNER JOIN products pd on us.idUser = pd.idUser";
+            string consulta = "SELECT products.*, " +
+                "categories.Name AS Category, " +
+                "users.Name AS Author " +
+                "FROM products " +
+                "LEFT JOIN " +
+                "categories ON products.idCategory = categories.idCategory " +
+                "LEFT JOIN " +
+                "users ON products.idUser = users.idUser;";
+
+
 
             try
             {
@@ -69,8 +74,8 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
                         Stock = reader.GetInt32("Stock"),
                         Price = reader.GetDecimal("Price"),
                         Date = reader.GetDateTime("Date").ToString("yyyy-MM-dd"),
-                        Category = reader.GetString("Category"),
-                        IdCategory = reader.GetInt32("idCategory")
+                        Category = reader.GetString("Category"), //necestamos tanto la categoria
+                        IdCategory = reader.GetInt32("idCategory") //como el id porque es lo que identifica la categoria (para proximas peticiones)
                     });
                 }
 
@@ -132,12 +137,13 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
             return Ok();
         }
-    
+
         [HttpPost, Authorize, ValidateTokensCsrf]
         [Route("test")]
         public IActionResult Test()
         {
-            return Ok("Bien");
+
+            return Ok("Bien :D");
         }
 
 

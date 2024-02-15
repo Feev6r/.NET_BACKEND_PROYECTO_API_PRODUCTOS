@@ -24,14 +24,15 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Middleware
 
         public async Task Invoke(HttpContext context)
         {
-            if (context.Request.Cookies["JWT-TOKEN"] != null)
+            try
             {
-                string jwtToken = context.Request.Cookies["JWT-TOKEN"]!;
-
-                ClaimsPrincipal? claimsPrincipal = _authTokenService.ValidateTokenJwt(jwtToken)!;
-
-                try
+                if (context.Request.Cookies["JWT-TOKEN"] != null)
                 {
+                    string jwtToken = context.Request.Cookies["JWT-TOKEN"]!;
+
+                    ClaimsPrincipal? claimsPrincipal = _authTokenService.ValidateTokenJwt(jwtToken)!;
+
+
                     if (claimsPrincipal != null)
                     {
                         // Accede a los claims
@@ -44,28 +45,29 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Middleware
                             _refreshTokenService.GenerteRefreshToken(idUser);
                         }
                     }
-                    else
-                    {
-                        await context.Response.WriteAsync("Error al procesar las credenciales");
-                        return;
-                    }
+
+
+                    await _next(context);
+
                 }
-                catch (Exception ex)
+                else
                 {
-                    await context.Response.WriteAsync($"Error at JwtExpirationValidationMiddleware: {ex.Message}");
+                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsJsonAsync(new { message = $"Se produjo un error al validar la credenciales" });
                     return;
                 }
-
-                await _next(context);
-
             }
-            else
+            catch (Exception ex)
             {
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                context.Response.ContentType = "text/plain";
-                await context.Response.WriteAsync($"Se produjo un error al validar la credenciales");
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new { message = $"Error at JwtExpirationValidationMiddleware: {ex.Message}" });
                 return;
             }
+
+
+
         }
     }
 }
