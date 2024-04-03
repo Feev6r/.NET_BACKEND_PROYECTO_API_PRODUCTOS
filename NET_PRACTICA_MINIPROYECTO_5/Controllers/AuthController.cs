@@ -1,212 +1,109 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NET_PRACTICA_MINIPROYECTO_5.Attributes;
+using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using NET_PRACTICA_MINIPROYECTO_5.Models;
-using NET_PRACTICA_MINIPROYECTO_5.Services;
-using System.Data;
-using System.Data.SqlClient;
-using System.Text.Json;
 
 namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 {
-    [Route("Auth")] 
+    [Route("Auth")]
     [ApiController]
     public class AuthController : Controller
     {
 
-        private readonly SqlConnection _connection;
-        private readonly IAntiforgery _antiforgery;
-        private readonly IConfiguration _configuration1;
-        private readonly IAuthTokenService _authTokenService;
-        private readonly IRefreshTokenService _refreshTokenService;
+        private readonly IConfiguration _configuration;
+        private readonly IAuthService _authTokenService;
 
 
-        public AuthController(IConfiguration configuration, 
-            IDbConnectionFactory dbConnectionFactory, 
-            IAntiforgery antiforgery, 
-            IAuthTokenService  authTokenService, 
-            IRefreshTokenService refreshTokenService   
-            ) 
+        public AuthController(IConfiguration configuration,
+            IAuthService authTokenService
+            )
         {
-            _configuration1 = configuration;
-            _antiforgery = antiforgery;
-            _connection = dbConnectionFactory.CreateConnection();
+            _configuration = configuration;
             _authTokenService = authTokenService;
-            _refreshTokenService = refreshTokenService;
         }
 
 
         [HttpPost]
         [Route("signUp")]
-        public async Task<IActionResult> Registrar(dynamic userDto)
+        public ActionResult Registrar(User user)
         {
-            string consulta = "INSERT INTO Proyecto_1.dbo.users(Name, Email, Password) " +
-                "VALUES(@Nombre, @Email, @Password)";
-
 
             try
             {
-                await _connection.OpenAsync();
+                _authTokenService.RegisterUser(user);
 
-                SqlCommand sqlCommand = new(consulta, _connection);
-
-                User user = JsonSerializer.Deserialize<User>(userDto.ToString());
-
-                if (!_authTokenService.IsEmailValid(user.Email))
-                {
-                    return BadRequest("Email Invalido");
-                }
-
-                string passwordHash = BCrypt.Net.BCrypt.HashPassword(user.Password);
-
-                sqlCommand.Parameters.AddWithValue("Nombre", user.Name);
-                sqlCommand.Parameters.AddWithValue("Email", user.Email);
-                sqlCommand.Parameters.AddWithValue("Password", passwordHash);
-
-                await sqlCommand.ExecuteScalarAsync();
-
-
-
-                return Ok("Exitoso");
+                return Ok();
 
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-            finally
-            {
-                await _connection.CloseAsync();
-            }
-
-            //IActionResult es una interface que te deja crear clases que la tengan de interface y puedes devolver un objeto de esa clase
-            //creada por ti
-
-            //ActionResult es una clase abstracta que solo te deja devolver metodos definos por ella.
 
         }
 
-
-        [HttpPost]
+        [HttpPost, TokenCsrfGeneration]
         [Route("login")]
-        public async Task<ActionResult> Login(dynamic userLoginD)
+        public ActionResult Login(User userLogin)
         {
-            string Query = "IF EXISTS (SELECT Name, Password FROM Proyecto_1.dbo.users  WHERE Name = @Name) " +
-                "SELECT 1 AS ExisteDato, Password, idUser From users where Name = @Name " +
-                "ELSE SELECT 0 AS ExisteDato ";
 
-
-            //hacer deserializacion para devolver errores personalizados
-            User userLogin = JsonSerializer.Deserialize<User>(userLoginD.ToString());
-
-            User user = new User();
+            RefreshToken refreshToken = new();
 
             try
             {
-                await _connection.OpenAsync();
-
-                SqlCommand sqlCommand = new(Query, _connection);
-
-                sqlCommand.Parameters.AddWithValue("Name", userLogin.Name);
-
-                await sqlCommand.ExecuteScalarAsync();
-
-                SqlDataReader reader = await sqlCommand.ExecuteReaderAsync();
+                string jwtToken = _authTokenService.LoginUser(userLogin, refreshToken);
 
 
-                while (await reader.ReadAsync())
+                Response.Cookies.Append("JWT-TOKEN", jwtToken, new CookieOptions
                 {
-                    int Exist = reader.GetInt32("ExisteDato");
+                    //Expires = DateTime.Now.AddDays(_configuration.GetValue<double>("JwtTokenOptions:ExpirationDays")),
+                    HttpOnly = true,
+                    Path = "/",
+                    Secure = true,
+                    SameSite = SameSiteMode.None
+                });
 
-
-                    if (Exist == 0) //Verficacion Nombre
-                    {
-                        return BadRequest("Nombre o Contraseña incorrectos :D");
-                    }
-
-                    user.Password = reader.GetString("Password");
-                    user.Id = reader.GetInt32("idUser");
-                }
-
-                await reader.CloseAsync();
-                await _connection.CloseAsync();
-
-                //Verificacion Constraseña
-                if (!BCrypt.Net.BCrypt.Verify(userLogin.Password, user.Password))
+                Response.Cookies.Append("refreshToken", refreshToken.Token, new CookieOptions
                 {
-                    return BadRequest("Nombre o Contraseña incorrectos :D");
-                }
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.None,
+                    Secure = true,
+                    Expires = refreshToken.Expires,
+
+                });
+
+                Response.Cookies.Append("UserSession", "1", new CookieOptions
+                {
+                    HttpOnly = false,
+                    Path = "/",
+                    Secure = true,
+                    SameSite = SameSiteMode.None
+
+                });
 
 
-                //Creacion Token JWT
-                _authTokenService.CreateJwtToken(user.Id);
-
-                //Refresh Token
-                _refreshTokenService.GenerteRefreshToken(user.Id);
-                
-                //Creamos Cookie isloggin para hacerle saber al backend que ya estamos registrados
-                _authTokenService.CreateCookieIsLoggin();
-
-                //Devolvemos token Csrf
-                return Ok(_authTokenService.CreateCsrfToken());
+                return Ok();
 
             }
             catch (Exception ex)
             {
-                return BadRequest($"Failed to login {ex.Message}");
-            }       
+                return BadRequest(new { message = $"Failed to login {ex.Message}" });
+            }
         }
 
-        //en constuccion ----
-        [HttpPost, Authorize, ValidateTokensCsrf]
+        [HttpPost, Authorize]
         [Route("logout")]
         public ActionResult Logout()
         {
             try
             {
-                // Crear una nueva instancia de la cookie y establecer el mismo nombre
-                HttpContext.Response.Cookies.Append("JWT-TOKEN", "VOID",
-                        new CookieOptions
-                        {
-                            Expires = DateTime.Now.AddDays(-1),
-                            HttpOnly = true,
-                            Path = "/",
-                            Secure = true,
-                            SameSite = SameSiteMode.None
-                        });
-
-
-                HttpContext.Response.Cookies.Append("refreshToken", "VOID",
-                        new CookieOptions
-                        {
-                            Expires = DateTime.Now.AddDays(-1),
-                            HttpOnly = true,
-                            Path = "/",
-                            Secure = true,
-                            SameSite = SameSiteMode.None
-                        });
-
-                HttpContext.Response.Cookies.Append(".AspNetCore.Session", "VOID",
-                        new CookieOptions
-                        {
-                            Expires = DateTime.Now.AddDays(-1),
-                            HttpOnly = true,
-                            Path = "/",
-                            Secure = true,
-                            SameSite = SameSiteMode.None
-                        });
-                HttpContext.Response.Cookies.Append("UserSession", "VOID",
-                        new CookieOptions
-                        {
-                            Expires = DateTime.Now.AddDays(-1),
-                            HttpOnly = true,
-                            Path = "/",
-                            Secure = true,
-                            SameSite = SameSiteMode.None
-                        });
-
-                return Ok(new {message = "Hecho y derecho"});
+                Response.Cookies.Append("JWT-TOKEN", "",new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None});
+                Response.Cookies.Append("refreshToken", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None });
+                Response.Cookies.Append("UserSession", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None } );
+                Response.Cookies.Append(".AspNetCore.Session", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None });
+            
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -216,3 +113,8 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
         }
     }
 }
+
+//IActionResult es una interface que te deja crear clases que la tengan de interface y puedes devolver un objeto de esa clase
+//creada por ti
+
+//ActionResult es una clase abstracta que solo te deja devolver metodos definos por ella.

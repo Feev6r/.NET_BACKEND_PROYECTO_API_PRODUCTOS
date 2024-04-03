@@ -1,8 +1,10 @@
-using Microsoft.AspNetCore.Antiforgery;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using NET_PRACTICA_MINIPROYECTO_5.Middleware;
+using NET_PRACTICA_MINIPROYECTO_5.Repositories;
 using NET_PRACTICA_MINIPROYECTO_5.Services;
 using Swashbuckle.AspNetCore.Filters;
 using System.Text;
@@ -10,11 +12,9 @@ using System.Text;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 string MyAllowSpecificOrigins = "myPolicyCors";
-// Add services to the container.
 
-/*
-builder.Services.AddTransient(_ =>
-    new SqlConnection(builder.Configuration.GetConnectionString("SqlServerConnection")));*/
+
+builder.Services.AddSingleton(x => new BlobServiceClient(builder.Configuration.GetConnectionString("AzureBlobConnection")));
 
 builder.Services.AddSingleton<IDbConnectionFactory>(provider =>
 {
@@ -22,25 +22,17 @@ builder.Services.AddSingleton<IDbConnectionFactory>(provider =>
     return new DbConnectionFactory(connectionString);
 });
 
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddTransient<IAuthTokenService>(provider =>
-{
-    IHttpContextAccessor httpContextAccessor = provider.GetRequiredService<IHttpContextAccessor>();
-    IConfiguration configuration = provider.GetRequiredService<IConfiguration>();
-    IAntiforgery antiforgery = provider.GetRequiredService<IAntiforgery>();
-    IDbConnectionFactory dbConnectionFactory = provider.GetRequiredService<IDbConnectionFactory>();
 
-    return new AuthTokenService(httpContextAccessor, configuration, antiforgery, dbConnectionFactory);
-});
+builder.Services.AddScoped<IBlobRepository, BlobRepository>();
 
-builder.Services.AddTransient<IRefreshTokenService>(provider =>
-{
-    IHttpContextAccessor httpContextAccessor = provider.GetRequiredService<IHttpContextAccessor>();
-    IDbConnectionFactory DbConnectionFactory = provider.GetRequiredService<IDbConnectionFactory>();
+builder.Services.AddScoped<IProductsRepository, ProducstRepository>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
-    return new RefreshTokenService(httpContextAccessor, DbConnectionFactory);
-});
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 builder.Services.AddCors(options =>
 {
@@ -50,7 +42,8 @@ builder.Services.AddCors(options =>
                           policy.WithOrigins("http://localhost:4200")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
-                          .AllowCredentials();
+                          .WithExposedHeaders("X-CSRF-Token")
+                          .AllowCredentials();           
                           
                       });
 });
@@ -58,7 +51,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-//addswagergen esto configura la seguridad de la appi 
+//Configures the security of the api
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
@@ -73,6 +66,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 
+
+
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -81,7 +76,7 @@ builder.Services.AddAuthentication(x =>
 })
     .AddCookie(options =>
     {
-        options.Cookie.Name = "JWT-TOKEN"; //el nombre con el cual se manejara en el cliente, no el backend
+        options.Cookie.Name = "JWT-TOKEN"; 
         options.Cookie.Path += "/Show/Prodcutos|/Show/test";
     })
     .AddJwtBearer(options =>
@@ -96,36 +91,33 @@ builder.Services.AddAuthentication(x =>
         ValidAudience = "https://localhost:7777/Show/",
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection("Appsettings:Token").Value!)),
     };
-    options.Events = new JwtBearerEvents //esto maneja eventos, en este caso cuado lanzamos una solicitud y mandamos una cookie, obtenemos el token de la cookie
-                                         
+    options.Events = new JwtBearerEvents 
+
     {
-        OnMessageReceived = context => //esto es un delegado, maneja el evento, y es un dump task que no devuelve nada
+        OnMessageReceived = context => 
         {
             context.Token = context.Request.Cookies["JWT-TOKEN"];
             return Task.CompletedTask;
         }
     };
-    
+
 });
+
+
 
 
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromDays(1);
-    //options.Cookie.Expiration = TimeSpan.FromSeconds(10);
+    //options.IdleTimeout = TimeSpan.FromDays(1);
+    //options.Cookie.Expiration = TimeSpan.FromDays(30);
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.None;
 });
 
-builder.Services.AddAntiforgery(options =>
-{
-    options.HeaderName = "X-CSRF-TOKEN";
-    options.SuppressXFrameOptionsHeader = false;
-});
-
+builder.Services.AddAntiforgery();
 
 //----------------------------------------------
 
@@ -148,25 +140,16 @@ app.UseCors(MyAllowSpecificOrigins);
 
 app.UseHttpsRedirection();
 
-app.UseWhen(context => context.Request.Path.StartsWithSegments("/Show") ||
-context.Request.Path.StartsWithSegments("/Information"), adminApp =>
-{
-    adminApp.UseMiddleware<JwtExpirationValidationMiddleware>();
-});
+app.UseStaticFiles();
 
 
-app.UseWhen(context => context.Request.Path.StartsWithSegments("/Show") || 
-context.Request.Path.StartsWithSegments("/Information"), adminApp =>
-{
-    adminApp.UseMiddleware<SessionExpirationValidationMiddleware>();
+app.UseMiddleware<JwtExpirationValidationMiddleware>();
 
-});
 
 app.UseAuthorization();
 
 app.MapControllers();
 
+
 app.Run(app.Configuration["Data:Url"]);
 
-
-//ver lo de como podemos hacer para que cuendo generemos los tokens nos saltemos el authorization middleware y seguir con el de los controller para que retorne la informacion aun caundo generamos tokens nuevos

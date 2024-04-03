@@ -1,4 +1,4 @@
-﻿using NET_PRACTICA_MINIPROYECTO_5.Services;
+﻿using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using System.Net;
 using System.Security.Claims;
 
@@ -7,56 +7,64 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Middleware
     public class JwtExpirationValidationMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly IAuthTokenService _authTokenService;
-        private readonly IRefreshTokenService _refreshTokenService;
 
-
-        public JwtExpirationValidationMiddleware(
-            RequestDelegate next,
-            IAuthTokenService authTokenService,
-            IRefreshTokenService refreshTokenService
-            )
+        public JwtExpirationValidationMiddleware(RequestDelegate next)
         {
-            _authTokenService = authTokenService;
-            _refreshTokenService = refreshTokenService;
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context)
+        public async Task Invoke(HttpContext context, IAuthService authService)
         {
+
             try
             {
-                if (context.Request.Cookies["JWT-TOKEN"] != null)
+                var routeData = context.GetRouteData();
+                var controller = routeData.Values["controller"]?.ToString();
+                var action = routeData.Values["action"]?.ToString();
+
+                if (controller == "Products" && action == "Test")
                 {
-                    string jwtToken = context.Request.Cookies["JWT-TOKEN"]!;
-
-                    ClaimsPrincipal? claimsPrincipal = _authTokenService.ValidateTokenJwt(jwtToken)!;
-
-
-                    if (claimsPrincipal != null)
+          
+                    if (context.Request.Cookies["JWT-TOKEN"] != null)
                     {
-                        // Accede a los claims
-                        int idUser = int.Parse(claimsPrincipal.FindFirst("UserId")!.Value);
+                        string jwtToken = context.Request.Cookies["JWT-TOKEN"]!;   
 
-                        //Validamos si el refreshToken no a expirado para generar otro token jwt
-                        if (_authTokenService.ValidateExpirationRefreshToken(idUser))
+                        ClaimsPrincipal? claimsPrincipal = authService.ValidateTokenJwt(jwtToken)!;
+
+
+                        if (claimsPrincipal != null)
                         {
-                            _authTokenService.CreateJwtToken(idUser);
-                            _refreshTokenService.GenerteRefreshToken(idUser);
+                            //Access to the claims
+                            int idUser = int.Parse(claimsPrincipal.FindFirst("UserId")!.Value);
+
+                            //we validate the refresh token expiration in order to generate another jwt token
+                            if (authService.ValidateExpirationRefreshToken(idUser))
+                            {
+                                authService.CreateJwtToken(idUser);
+                                authService.GenerteRefreshToken(new Models.RefreshToken(), idUser);
+                            }
                         }
+
+
+                        await _next(context);
+
                     }
-
-
-                    await _next(context);
-
+                    else //There's no cookie D:
+                    {
+                        context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        await context.Response.WriteAsJsonAsync(new { message = $"Se produjo un error al validar la credenciales" });
+                        return;
+                    }
                 }
                 else
                 {
-                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                    context.Response.ContentType = "application/json";
-                    await context.Response.WriteAsJsonAsync(new { message = $"Se produjo un error al validar la credenciales" });
-                    return;
+                    await _next(context);
+
                 }
+
+
+
             }
             catch (Exception ex)
             {

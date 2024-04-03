@@ -1,13 +1,8 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NET_PRACTICA_MINIPROYECTO_5.Attributes;
+using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using NET_PRACTICA_MINIPROYECTO_5.Models;
-using NET_PRACTICA_MINIPROYECTO_5.Services;
-using System.Data;
-using System.Data.SqlClient;
-using System.Text;
-using System.Text.Json;
 
 namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 {
@@ -15,137 +10,158 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        private readonly SqlConnection _connection;
-        private readonly IConfiguration _configuration;
-        private readonly IAntiforgery _antiforgery;
-        private readonly IRefreshTokenService _refreshTokenService;
+
         private readonly ILogger<ProductsController> _logger;
+        private readonly IProductService _productService;
+
 
         public ProductsController(
-            IConfiguration configuration
-            , IDbConnectionFactory dbConnectionFactory,
-            IAntiforgery antiforgery,
             ILogger<ProductsController> logger,
-            IRefreshTokenService refreshTokenService
-
+            IProductService productService
             )
         {
-            _configuration = configuration;
-            _connection = dbConnectionFactory.CreateConnection();
-            _antiforgery = antiforgery;
             _logger = logger;
-            _refreshTokenService = refreshTokenService;
+            _productService = productService;
         }
 
-        [HttpGet, Authorize, ValidateTokensCsrf]
-        [Route("Productos")]
-        public async Task<IActionResult> MostrarProductos()
+        [HttpGet]
+        [Route("products")]
+        public ActionResult GetProduts([FromQuery] ProductFilter productFilter)
         {
-
-            List<Product_Writing> productos = new();
-
-            string consulta = "SELECT products.*, " +
-                "categories.Name AS Category, " +
-                "users.Name AS Author " +
-                "FROM products " +
-                "LEFT JOIN " +
-                "categories ON products.idCategory = categories.idCategory " +
-                "LEFT JOIN " +
-                "users ON products.idUser = users.idUser;";
+            try
+            {
+                List<ProductWriting> result = _productService.GetProductsbyFilter(productFilter);
 
 
+                return Ok(result);
+
+            }
+            catch 
+            {
+                return StatusCode(500, new { message = "Error while trying to get the products"});
+            }
+
+        }
+
+
+        [HttpGet]
+        [Route("images/{idPublicacion}")]
+        public async Task<ActionResult> Image(int idPublicacion)
+        {
 
             try
             {
-                await _connection.OpenAsync();
+                var blobObject = await _productService.GetImages(idPublicacion);
 
-                SqlCommand sqlCommand = new(consulta, _connection);
-
-                SqlDataReader reader = await sqlCommand.ExecuteReaderAsync();
-
-                while (await reader.ReadAsync())
-                {
-                    productos.Add(new Product_Writing
-                    {
-                        IdProduct = reader.GetInt32("idProduct"),
-                        Author = reader.GetString("Author"),
-                        Title = reader.GetString("Title"),
-                        Description = reader.GetString("Description"),
-                        Stock = reader.GetInt32("Stock"),
-                        Price = reader.GetDecimal("Price"),
-                        Date = reader.GetDateTime("Date").ToString("yyyy-MM-dd"),
-                        Category = reader.GetString("Category"), //necestamos tanto la categoria
-                        IdCategory = reader.GetInt32("idCategory") //como el id porque es lo que identifica la categoria (para proximas peticiones)
-                    });
-                }
-
-                await reader.CloseAsync();
-
-                return Ok(productos);
+                return File(blobObject.Content!, blobObject.ContentType!);
             }
-            catch (AntiforgeryValidationException)
+            catch
             {
-                return BadRequest("La validación del token CSRF falló.");
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            finally
-            {
-                await _connection.CloseAsync();
+                return StatusCode(500, "Error while trying to get the image");
             }
 
         }
 
-        [HttpPost]
-        [Authorize]
-        [ValidateTokensCsrf]
-        [Route("crearProducto")]
-        public async Task<IActionResult> CrearProducto([FromBody] dynamic product)
-        {
 
-            string consulta = "INSERT INTO Proyecto_1.dbo.products(Title, Description, Stock, Price, Date, idUser, idCategory) " +
-                "VALUES(@Title, @Description, @Stock, @Price, @Date, @IdUser, @IdCategory)";
+        [HttpPost("createProduct"), Authorize, TokenCsrfGeneration]
+        public ActionResult CreateProducts([FromBody] ProductReading Products)
+        {
 
             try
             {
-                await _connection.OpenAsync();
+                _productService.CreateProducts(Products);
 
-                SqlCommand sqlCommand = new(consulta, _connection);
-
-                Product_Reading product_Reading = JsonSerializer.Deserialize<Product_Reading>(product.ToString());
-
-                sqlCommand.Parameters.AddWithValue("Title", product_Reading.Title);
-                sqlCommand.Parameters.AddWithValue("Description", product_Reading.Description);
-                sqlCommand.Parameters.AddWithValue("Stock", product_Reading.Stock);
-                sqlCommand.Parameters.AddWithValue("Price", product_Reading.Price);
-                sqlCommand.Parameters.AddWithValue("Date", product_Reading.Date);
-                sqlCommand.Parameters.AddWithValue("idUser", product_Reading.IdUser);
-                sqlCommand.Parameters.AddWithValue("idCategory", product_Reading.IdCategory);
-
+                return Ok();
             }
-            catch (JsonException jex)
+            catch
             {
-                return BadRequest(jex.Path);
+                return StatusCode (500, "Error while trying to create the product");
             }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            finally { await _connection.CloseAsync(); }
 
-            return Ok();
         }
 
-        [HttpPost, Authorize, ValidateTokensCsrf]
+        [HttpPut("editProducts"), Authorize, TokenCsrfGeneration]
+        public async Task<ActionResult> EditProducts([FromBody] ProductReading Products)
+        {
+            try
+            {
+                await _productService.UpdateProducts(Products);
+
+                return Ok();
+            }
+            catch
+            {
+                return StatusCode(500, $"Error while trying to edit the product");
+            }
+
+        }
+
+
+        //Testing and debbuging method
+        [HttpPost, TokenCsrfGeneration]
         [Route("test")]
-        public IActionResult Test()
+        public ActionResult Test()
         {
+            try
+            {
+                return Ok(new { message = $"All good" });
 
-            return Ok("Bien :D");
+            }
+            catch(Exception ex) 
+            {
+                return BadRequest(new {message = $"ERROR AT TEST {ex.Message}"});
+
+            }
         }
-
 
     }
 }
+
+
+// C:\\Users\\FernandoArandano\\source\\repos\\DevProgrammingPractice\\PRACTICAS-ASP.NETCORE\\NET_PRACTICA_MINIPROYECTO_5\\NET_PRACTICA_MINIPROYECTO_5\\Images
+
+//[HttpGet]
+//[Route("Images/{idPublicacion}")]
+//public ActionResult a(int idPublicacion)
+// {
+//string nombreImagen = "";
+/*
+            if (idPublicacion == 0)
+            {
+                //nombreImagen = "Banana.jpg";
+            }
+            else if(idPublicacion == 1)
+            {
+               // nombreImagen = "Brocoli.jpg";
+            }
+
+            var containerClient = _blobServiceClient.GetBlobContainerClient("productsimages");
+            var blobClient = containerClient.GetBlobClient("image1");
+            var response =  blobClient.DownloadContent();
+
+            var properties = blobClient.GetProperties();
+
+
+            // Convertir BinaryData a byte[]
+            byte[] imageData =  response.Value.Content.ToArray();
+
+            return File(imageData, properties.Value.ContentType);*/
+/*
+            string directorioImagenes = Path.Combine(Directory.GetCurrentDirectory(), "Images");
+            string rutaImagen = Path.Combine(directorioImagenes, nombreImagen);
+
+            if (!System.IO.File.Exists(rutaImagen))
+            {
+                return BadRequest(new { message = rutaImagen }); // Retorna un código de estado 404 si la imagen no se encuentra
+            }
+
+            byte[] bytesImagen = System.IO.File.ReadAllBytes(rutaImagen);
+
+
+
+            return File(bytesImagen, "image/jpeg");*/
+
+
+//  return Ok();
+
+// }
