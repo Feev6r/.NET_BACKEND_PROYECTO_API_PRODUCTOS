@@ -2,8 +2,8 @@ using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using NET_PRACTICA_MINIPROYECTO_5.Attributes;
 using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
-using NET_PRACTICA_MINIPROYECTO_5.Middleware;
 using NET_PRACTICA_MINIPROYECTO_5.Repositories;
 using NET_PRACTICA_MINIPROYECTO_5.Services;
 using Swashbuckle.AspNetCore.Filters;
@@ -65,8 +65,11 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<SecurityRequirementsOperationFilter>();  
 });
 
-
-
+//Configures stuff from controllers like filters and other things.
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<TestAuthorizationFilter>();
+});
 
 builder.Services.AddAuthentication(x =>
 {
@@ -100,7 +103,6 @@ builder.Services.AddAuthentication(x =>
             return Task.CompletedTask;
         }
     };
-
 });
 
 
@@ -141,9 +143,6 @@ app.UseCors(MyAllowSpecificOrigins);
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
-
-
-app.UseMiddleware<JwtExpirationValidationMiddleware>();
 
 
 app.UseAuthorization();

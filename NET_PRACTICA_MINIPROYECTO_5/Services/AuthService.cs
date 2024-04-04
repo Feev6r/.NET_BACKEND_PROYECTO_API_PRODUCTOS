@@ -42,55 +42,12 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
                 issuer: "https://localhost:7777/",
                 audience: "https://localhost:7777/Show/",
                 claims: claims,
-                expires: /*DateTime.Now.AddDays(_configuration.GetValue<double>("JwtTokenOptions:ExpirationDays"))*/ DateTime.Now.AddSeconds(10),
+                expires: DateTime.Now.AddDays(_configuration.GetValue<double>("JwtTokenOptions:ExpirationDays")),
                 signingCredentials: creds
                 );
 
             string jwt = new JwtSecurityTokenHandler().WriteToken(token);
             return jwt;
-        }
-
-        public ClaimsPrincipal? ValidateTokenJwt(string token)
-        {
-            JwtSecurityTokenHandler tokenHandler = new();
-
-            TokenValidationParameters validationParameters = new()
-            {
-                ValidateIssuerSigningKey = true,
-                ValidateAudience = true,
-                ValidateIssuer = true,
-                ValidateLifetime = true,
-                ValidIssuer = "https://localhost:7777/",
-                ValidAudience = "https://localhost:7777/Show/",
-                ClockSkew = TimeSpan.Zero,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("Appsettings:Token").Value!)),
-            };
-
-
-            try
-            {
-                tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
-
-            }
-            catch (SecurityTokenExpiredException)
-            {
-                // Manejar el caso de token expirado
-                //se devuelve el claim para obtener informacion y generar un nuevo token
-
-                var tokenHandler2 = new JwtSecurityTokenHandler();
-                var expiredToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
-
-                ClaimsPrincipal expiredClaimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(expiredToken!.Claims, "jwt"));
-
-                return expiredClaimsPrincipal;
-            }
-            catch (Exception ex)
-            {
-                // Manejar otras excepciones
-                throw new Exception($"Error al validar el token: {ex.Message}");
-            }
-
-            return null;
         }
 
         public bool ValidateExpirationRefreshToken(int idUser)
@@ -136,7 +93,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
 
         }
 
-        public string LoginUser(User user, RefreshToken refreshToken)
+        public string LoginUser(User user)
         {
             try
             {
@@ -147,7 +104,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
                 {
                     string JwtToken = CreateJwtToken(user.Id);
 
-                    GenerteRefreshToken(refreshToken, user.Id);
+                    GenerteRefreshToken(new RefreshToken(), user.Id);
 
                     return JwtToken;
                 }

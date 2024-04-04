@@ -48,12 +48,10 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
         public ActionResult Login(User userLogin)
         {
 
-            RefreshToken refreshToken = new();
 
             try
             {
-                string jwtToken = _authTokenService.LoginUser(userLogin, refreshToken);
-
+                string jwtToken = _authTokenService.LoginUser(userLogin);
 
                 Response.Cookies.Append("JWT-TOKEN", jwtToken, new CookieOptions
                 {
@@ -62,15 +60,6 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
                     Path = "/",
                     Secure = true,
                     SameSite = SameSiteMode.None
-                });
-
-                Response.Cookies.Append("refreshToken", refreshToken.Token, new CookieOptions
-                {
-                    HttpOnly = true,
-                    SameSite = SameSiteMode.None,
-                    Secure = true,
-                    Expires = refreshToken.Expires,
-
                 });
 
                 Response.Cookies.Append("UserSession", "1", new CookieOptions

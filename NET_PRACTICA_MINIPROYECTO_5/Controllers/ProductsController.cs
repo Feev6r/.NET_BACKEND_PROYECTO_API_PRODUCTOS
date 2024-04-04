@@ -98,7 +98,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
 
         //Testing and debbuging method
-        [HttpPost, TokenCsrfGeneration]
+        [HttpPost, Authorize, TokenCsrfGeneration]
         [Route("test")]
         public ActionResult Test()
         {
