@@ -11,6 +11,12 @@
         public int Stock { get; set; }
         public decimal Price { get; set; }
         public string ImageRute { get; set; } = string.Empty;
+
+
+        public IFormFile? FormFile { get; set; }
+
+
         public string Date { get; set; } = string.Empty;
+
     }
 }

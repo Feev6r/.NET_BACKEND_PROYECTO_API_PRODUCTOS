@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using NET_PRACTICA_MINIPROYECTO_5.Attributes;
 using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using NET_PRACTICA_MINIPROYECTO_5.Models;
 
@@ -12,15 +12,18 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
     {
 
         private readonly IConfiguration _configuration;
+        private readonly IAntiforgery _antiforgery;
         private readonly IAuthService _authTokenService;
 
 
         public AuthController(IConfiguration configuration,
-            IAuthService authTokenService
+            IAuthService authTokenService,
+            IAntiforgery antiforgery
             )
         {
             _configuration = configuration;
             _authTokenService = authTokenService;
+            _antiforgery = antiforgery;
         }
 
 
@@ -43,17 +46,15 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
         }
 
-        [HttpPost, TokenCsrfGeneration]
+        [HttpPost]
         [Route("login")]
         public ActionResult Login(User userLogin)
         {
-
-
             try
             {
-                string jwtToken = _authTokenService.LoginUser(userLogin);
+                string jwtToken = _authTokenService.LoginUser(userLogin, HttpContext);
 
-                Response.Cookies.Append("JWT-TOKEN", jwtToken, new CookieOptions
+                HttpContext.Response.Cookies.Append("JWT-TOKEN", jwtToken, new CookieOptions
                 {
                     //Expires = DateTime.Now.AddDays(_configuration.GetValue<double>("JwtTokenOptions:ExpirationDays")),
                     HttpOnly = true,
@@ -61,16 +62,16 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
                     Secure = true,
                     SameSite = SameSiteMode.None
                 });
-
-                Response.Cookies.Append("UserSession", "1", new CookieOptions
+                HttpContext.Response.Cookies.Append("UserSession", "1", new CookieOptions
                 {
                     HttpOnly = false,
                     Path = "/",
                     Secure = true,
                     SameSite = SameSiteMode.None
-
                 });
 
+                var csrfToken = _antiforgery.GetAndStoreTokens(HttpContext).RequestToken;
+                HttpContext.Response.Headers.Append("X-CSRF-TOKEN", csrfToken);
 
                 return Ok();
 
@@ -81,6 +82,25 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             }
         }
 
+        [HttpGet, Authorize]
+        [Route("tokenCsrf")]
+        public ActionResult GetCsrfToken()
+        {
+            try
+            {
+                var csrfToken = _antiforgery.GetAndStoreTokens(HttpContext).RequestToken;
+                HttpContext.Response.Headers.Append("X-CSRF-TOKEN", csrfToken);
+                return Ok();
+
+            }
+            catch(Exception ex) 
+            {
+                return BadRequest(new { message = $"Failed to login-CsrfToken {ex.Message}" });
+            }
+
+        }
+
+
         [HttpPost, Authorize]
         [Route("logout")]
         public ActionResult Logout()
@@ -89,8 +109,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             {
                 Response.Cookies.Append("JWT-TOKEN", "",new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None});
                 Response.Cookies.Append("refreshToken", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None });
-                Response.Cookies.Append("UserSession", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None } );
-                Response.Cookies.Append(".AspNetCore.Session", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None });
+                Response.Cookies.Append(".AspNetCore.Antiforgery.bKA7B3_H_Uo", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None });
             
                 return Ok();
             }

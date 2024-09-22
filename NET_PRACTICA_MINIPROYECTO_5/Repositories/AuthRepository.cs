@@ -23,12 +23,13 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
 
             try
             {
-                _connection.Open();
                 SqlCommand sqlCommand = new(Query, _connection);
+                _connection.Open();
 
                 sqlCommand.Parameters.AddWithValue("idUser", IdUser);
 
                 SqlDataReader reader = sqlCommand.ExecuteReader();
+
                 while (reader.Read())
                 {
                     RefreshTokenExpiration = reader.GetDateTime("Expiration");
@@ -54,8 +55,9 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
 
             try
             {
-                _connection.Open();
                 SqlCommand sqlCommand = new(consulta, _connection);
+
+                _connection.Open();
 
                 sqlCommand.Parameters.AddWithValue("Nombre", user.Name);
                 sqlCommand.Parameters.AddWithValue("Email", user.Email);

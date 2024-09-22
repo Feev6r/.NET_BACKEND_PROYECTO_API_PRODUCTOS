@@ -4,5 +4,6 @@
     {
         public string CuantityFilter { get; set; } = string.Empty;
         public string CategoryFilter { get; set; } = string.Empty;
+        public string UserFilter { get; set; } = string.Empty;
     }
 }

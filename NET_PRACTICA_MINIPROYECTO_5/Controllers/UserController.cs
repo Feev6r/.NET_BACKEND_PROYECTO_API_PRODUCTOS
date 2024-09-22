@@ -16,7 +16,6 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             _userService = userService;
         }
 
-
         [Route("user")]
         [HttpGet, Authorize]
         public ActionResult GetUserInfo()

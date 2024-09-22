@@ -1,5 +1,6 @@
 ﻿using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using NET_PRACTICA_MINIPROYECTO_5.Models;
+using System.Reflection;
 
 namespace NET_PRACTICA_MINIPROYECTO_5.Services
 {
@@ -7,26 +8,35 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
     {
         private readonly IProductsRepository _productsRepository;
         private readonly IBlobRepository _blobRepository;
+        private readonly ICloudinaryImgRepository _cloudinaryImgRepository;
 
-        public ProductService(IProductsRepository productsRepository, IBlobRepository blobRepository)
+        public ProductService(
+            IProductsRepository productsRepository, 
+            IBlobRepository blobRepository, 
+            ICloudinaryImgRepository cloudinaryImgRepository)
+
         {
             _productsRepository = productsRepository;
             _blobRepository = blobRepository;
+            _cloudinaryImgRepository = cloudinaryImgRepository;
         }
 
-        public async void CreateProducts(ProductReading products)
+        public void CreateProducts(ProductReading products)
         {
             //Upload the photo to Azure BlobStroge and get the uri to storage it
-            string Uri = await _blobRepository.UploadBlobFile(products.ImageRute.FilePath, products.ImageRute.FileName);
+            //string Uri = await _blobRepository.UploadBlobFile(products.BlobImage.FilePath, products.BlobImage.FileName);
 
-            _productsRepository.CreateNew(products, Uri);
+            string url = _cloudinaryImgRepository.UploadImage(products.File!);
+
+            _productsRepository.CreateNew(products, url);    
+
         }
 
         public List<ProductWriting> GetProductsbyFilter(ProductFilter productFilter)
         {
             try
             {
-                var Products = _productsRepository.GetAllbyFilter(productFilter.CuantityFilter, productFilter.CategoryFilter);
+                var Products = _productsRepository.GetAllbyFilter(productFilter.CuantityFilter, productFilter.CategoryFilter, productFilter.UserFilter);
 
                 return Products;
             }
@@ -37,22 +47,39 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
 
         }
 
-        public async Task UpdateProducts(ProductReading products)
+        public void UpdateProducts(ProductReading products)
         {
             try
             {
-                //If we want to change the photo, we need to upload the photo, if not then the image rute will be empty
-                //and it wont execute the logic for that.
-                if (products.ImageRute.FilePath != "" && products.ImageRute.FilePath != "")
+                if (products.File != null) {
+
+                    string prevImagePublicId = _productsRepository.getImagePublicId(products.IdProduct);
+                    _cloudinaryImgRepository.DeleteImage(prevImagePublicId);
+
+                    string newImagePublicId = _cloudinaryImgRepository.UploadImage(products.File);
+
+                    _productsRepository.Update(products, newImagePublicId);
+
+                }
+                else
                 {
-                    
-                    string NewUri = await _blobRepository.UploadBlobFile(products.ImageRute.FilePath, products.ImageRute.FileName);
+                    _productsRepository.Update(products, null);
+                }
+
+                //azure stuff
+
+                //If we want to change the photo, we need to upload the photo, if not, then the image rute will be empty
+                //and it wont execute the logic for that.
+                /*                if (products.BlobImage.FilePath != "" && products.BlobImage.FilePath != "")
+                {
+
+                    string NewUri = await _blobRepository.UploadBlobFile(products.BlobImage.FilePath, products.BlobImage.FileName);
 
                     //Delete prev photo of Azure
                     var PrevUri = _productsRepository.GetImageUri(products.IdProduct);
                     _blobRepository.DeleteBlob(PrevUri);
 
-                    //Update AnyThing
+ 
                     _productsRepository.Update(products, NewUri);
                 }
                 else
@@ -60,11 +87,11 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
                     //Update the product with the new data, depends of witch data we want to change
                     var ActualUri = _productsRepository.GetImageUri(products.IdProduct);
                     _productsRepository.Update(products, ActualUri);
-                }
+                }*/
 
 
             }
-            catch(Exception ex) 
+            catch (Exception ex)
             {
                 throw new Exception(ex.Message);
             }
@@ -76,9 +103,39 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
         {
             string uri = _productsRepository.GetImageUri(idProduct);
 
-            var blobObject =  await _blobRepository.GetBlobFile(uri);
+            var blobObject = await _blobRepository.GetBlobFile(uri);
 
             return blobObject;
+        }
+
+        private void CanUserDeleteProduct(int IdUser, int IdProduct)
+        {
+            try
+            {
+                if (_productsRepository.VerifyUser(IdUser, IdProduct) == "0")
+                {
+                    throw new UnauthorizedAccessException();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public void DeleteProduct(int IdUser, int IdProduct)
+        {
+
+
+            CanUserDeleteProduct(IdUser, IdProduct);
+
+            string ImagePublicId = _productsRepository.getImagePublicId(IdProduct);
+            _cloudinaryImgRepository.DeleteImage(ImagePublicId);
+
+            _productsRepository.Delete(IdProduct);
+
+            //_blobRepository.DeleteBlob(ImageUri);
+
         }
     }
 }

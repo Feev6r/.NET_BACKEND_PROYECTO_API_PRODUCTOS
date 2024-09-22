@@ -63,12 +63,12 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
                 }
                 else
                 {
-                    throw new Exception("Doent exist the name");
+                    throw new Exception("Blob Error: Doesn't exist the name");
                 }
             }
             catch
             {
-                throw new Exception("Error at getblobfile");
+                throw new Exception("Error at GetBlobFile");
             }
         }
 

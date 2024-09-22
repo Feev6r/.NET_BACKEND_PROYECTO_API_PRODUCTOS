@@ -21,7 +21,10 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Models
        
         public DateTime Date { get; }
 
-        public BlobContentModel ImageRute { get; set;} = new BlobContentModel();
+        public IFormFile? File { get; set; }
+
+        //Hecho para manejar blobs de Azure
+        public BlobContentModel BlobImage { get; set;} = new BlobContentModel();
 
         public ProductReading()
         {

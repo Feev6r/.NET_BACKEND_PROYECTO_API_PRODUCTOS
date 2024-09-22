@@ -16,8 +16,16 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
             _connection = dbConnectionFactory.CreateConnection();
         }
 
-        public List<ProductWriting> GetAllbyFilter(string CuantityFilter, string CategoryFilter)
+        public List<ProductWriting> GetAllbyFilter(string CuantityFilter, string CategoryFilter, string UserFilter = "")
         {
+
+            string FilterUser = "";
+            
+            if(UserFilter != "" && CategoryFilter == "All")
+                FilterUser = $"WHERE users.idUser = {UserFilter} ";
+            else if(UserFilter != "" && CategoryFilter != "All")
+                FilterUser = $"AND users.idUser = {UserFilter} ";
+
 
             List<ProductWriting> Products = [];
 
@@ -33,6 +41,8 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
             {
                 "Vegetables" => "WHERE categories.idCategory = 3 ",
                 "Fruits" => "WHERE categories.idCategory = 4 ",
+                "Meats" => "WHERE categories.idCategory = 5 ",
+                "Drinks" => "WHERE categories.idCategory = 6 ",
                 "All" => "",
                 _ => throw new Exception(),
             };
@@ -43,7 +53,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
                 "FROM products " +
                 "LEFT JOIN categories ON products.idCategory = categories.idCategory " +
                 "LEFT JOIN users ON products.idUser = users.idUser " +
-            FilterCategory +
+            FilterCategory + FilterUser +
                 "ORDER BY " + FilterProduct;
 
 
@@ -65,7 +75,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
                         Stock = Reader.GetInt32("Stock"),
                         Price = Reader.GetDecimal("Price"),
 
-                        ImageRute = Reader.GetString("ImageBlobRute"),
+                        ImageRute = Reader.GetString("UrlImage"),
 
                         Date = Reader.GetDateTime("Date").ToString("yyyy-MM-dd"),
                         Category = Reader.GetString("Category"),
@@ -90,8 +100,8 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
         public void CreateNew(ProductReading product_Reading, string Uri)
         {
 
-            string Query = "INSERT INTO Proyecto_1.dbo.products(Title, Description, Stock, Price, Date, idUser, idCategory, ImageBlobRute) " +
-              "VALUES(@Title, @Description, @Stock, @Price, @Date, @IdUser, @IdCategory, @ImageBlobRute)";
+            string Query = "INSERT INTO Proyecto_1.dbo.products(Title, Description, Stock, Price, Date, idUser, idCategory, UrlImage) " +
+              "VALUES(@Title, @Description, @Stock, @Price, @Date, @IdUser, @IdCategory, @UrlImage)";
 
             try
             {
@@ -105,10 +115,10 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
                 Command.Parameters.AddWithValue("Price", product_Reading.Price);
 
                 Command.Parameters.AddWithValue("Date", product_Reading.Date);
-                
+
                 Command.Parameters.AddWithValue("idUser", product_Reading.IdUser);
                 Command.Parameters.AddWithValue("idCategory", product_Reading.IdCategory);
-                Command.Parameters.AddWithValue("ImageBlobRute", Uri);
+                Command.Parameters.AddWithValue("UrlImage", Uri);
 
 
                 Command.ExecuteNonQuery();
@@ -120,15 +130,17 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
             }
         }
 
-        public void Update(ProductReading products, string Uri)
+        public void Update(ProductReading products, string? url)
         {
+            string uriQuery = url != null ? ", UrlImage = @UrlImage " : ""; 
+
             string Query = "UPDATE Proyecto_1.dbo.products " +
                 "SET Title = @Title, " +
                 "Description = @Description, " +
                 "Stock = @Stock, " +
                 "Price = @Price, " +
-                "idCategory = @IdCategory, " +
-                "ImageBlobRute = @ImageBlobRute " +
+                "idCategory = @IdCategory " +
+                uriQuery +
                 "WHERE idProduct = @IdProduct;";
 
             try
@@ -143,24 +155,45 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
                 Command.Parameters.AddWithValue("Price", products.Price);
                 Command.Parameters.AddWithValue("IdCategory", products.IdCategory);
                 Command.Parameters.AddWithValue("IdProduct", products.IdProduct);
-                Command.Parameters.AddWithValue("ImageBlobRute", Uri);
+                if(url != null) Command.Parameters.AddWithValue("UrlImage", url);
 
                 Command.ExecuteNonQuery();
                 _connection.Close();
             }
-            catch(Exception ex) 
+            catch (Exception ex)
             {
                 throw new Exception(ex.Message);
             }
 
         }
 
-        public void Delete(ProductReading products)
+        public void Delete(int IdProduct)
         {
-            throw new NotImplementedException();
+            string Query = """     
+                DELETE FROM Proyecto_1.dbo.products WHERE idProduct = @IdProduct
+             """;
+
+            try
+            {
+                _connection.Open();
+
+                var Command = new SqlCommand(Query, _connection);
+
+                Command.Parameters.AddWithValue("IdProduct", IdProduct);
+
+                Command.ExecuteNonQuery();
+
+                _connection.Close();
+
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+
         }
 
-
+        //method to getimageuri of blobs
         public string GetImageUri(int ProductId)
         {
             string Query = "SELECT ImageBlobRute FROM Proyecto_1.dbo.products " +
@@ -187,9 +220,71 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
                 return Uri!;
 
             }
-            catch ( Exception ex )
+            catch (Exception ex)
             {
-                throw new Exception (ex.Message);
+                throw new Exception(ex.Message);
+            }
+        }
+
+
+        public string getImagePublicId(int ProductId)
+        {
+            try
+            {
+                string Query = "SELECT UrlImage FROM Proyecto_1.dbo.products " +
+                     "WHERE products.idProduct = @IdProduct;";
+
+                string url = "";
+
+                _connection.Open();
+                SqlCommand Command = new(Query, _connection);
+
+                Command.Parameters.AddWithValue("IdProduct", ProductId);
+                SqlDataReader Reader = Command.ExecuteReader();
+
+                while (Reader.Read())
+                {
+                    url = Reader.GetString("UrlImage");
+                }
+
+                Reader.Close();
+                _connection.Close();
+
+                return url.Substring(13);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public string VerifyUser(int IdUser, int IdProduct)
+        {
+            try
+            {
+                string Query = """
+                IF @IdUser = (SELECT idUser FROM Proyecto_1.dbo.products WHERE idProduct = @IdProduct)
+                SELECT 1 AS Match
+                ELSE SELECT 0 AS Match
+                """;
+
+                _connection.Open();
+
+                var Command = new SqlCommand(Query, _connection);
+
+                Command.Parameters.AddWithValue("IdUser", IdUser);
+                Command.Parameters.AddWithValue("IdProduct", IdProduct);
+
+
+                string Match = Command.ExecuteScalar().ToString()!;
+
+                _connection.Close();
+
+                return Match;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
             }
 
         }
