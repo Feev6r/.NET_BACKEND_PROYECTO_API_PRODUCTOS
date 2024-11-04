@@ -30,11 +30,11 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
         [HttpGet]
         [Route("show")]
-        public ActionResult GetProduts([FromQuery] ProductFilter productFilter)
+        public ActionResult GetProducts([FromQuery] ProductFilter productFilter)
         {
             try
             {
-                List<ProductWriting> result = _productService.GetProductsbyFilter(productFilter);
+                List<ProductWriting> result = _productService.GetProductsByFilter(productFilter);
 
                 return Ok(result);
             }
@@ -106,7 +106,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             {
                 productFilter.UserFilter = HttpContext.User.FindFirst("UserId")!.Value;
 
-                List<ProductWriting> result = _productService.GetProductsbyFilter(productFilter);
+                List<ProductWriting> result = _productService.GetProductsByFilter(productFilter);
 
                 return Ok(result);
             }
@@ -117,6 +117,74 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
         }
 
+
+
+
+
+        [HttpPost("orders/make"), Authorize]
+        public ActionResult createOrder([FromBody] OrderModel orderModel)
+        {
+            try
+            {
+                orderModel.IdUser = int.Parse(HttpContext.User.FindFirst("UserId")!.Value);
+                _productService.MakeOrder(orderModel);
+                return Ok();
+            }
+            catch
+            {
+                return StatusCode(500, new { message = "Error while trying to create an order" });
+            }
+        }
+
+        [HttpGet("orders/total"), Authorize]
+        public ActionResult getTotalOrders()
+        {
+            try
+            {
+                int idUser = int.Parse(HttpContext.User.FindFirst("UserId")!.Value);
+                return Ok(_productService.TotalOrders(idUser));
+            }
+            catch
+            {
+                return StatusCode(500, new { message = "Error while trying to get the total orders" });
+
+            }
+        }
+
+        [HttpGet("orders/totalPrice"), Authorize]
+        public ActionResult getTotalPrice()
+        {
+            try
+            {
+                int idUser = int.Parse(HttpContext.User.FindFirst("UserId")!.Value);
+                return Ok(_productService.TotalPrice(idUser));
+            }
+            catch
+            {
+                return StatusCode(500, new { message = "Error while trying to get the total price" });
+            }
+
+        }
+
+
+        [HttpDelete("orders/delete{idOrder}"), Authorize]
+        public ActionResult deleteOrders(int idOrder = 0)
+        {
+            try
+            {
+                int idUser = int.Parse(HttpContext.User.FindFirst("UserId")!.Value);
+                _productService.DeleteOrder(idUser, idOrder);
+                return Ok();
+            }
+            catch 
+            {
+                return StatusCode(500, new { message = "Error while trying to delete some orders" });
+            }
+
+        }
+
+
+        #region DebugStuff
 
         //Testing and debbuging method
         [HttpGet, Authorize]
@@ -158,6 +226,6 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
 
         }
 
-
+        #endregion
     }
 }

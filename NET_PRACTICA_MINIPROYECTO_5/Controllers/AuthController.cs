@@ -82,25 +82,6 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             }
         }
 
-        [HttpGet, Authorize]
-        [Route("tokenCsrf")]
-        public ActionResult GetCsrfToken()
-        {
-            try
-            {
-                var csrfToken = _antiforgery.GetAndStoreTokens(HttpContext).RequestToken;
-                HttpContext.Response.Headers.Append("X-CSRF-TOKEN", csrfToken);
-                return Ok();
-
-            }
-            catch(Exception ex) 
-            {
-                return BadRequest(new { message = $"Failed to login-CsrfToken {ex.Message}" });
-            }
-
-        }
-
-
         [HttpPost, Authorize]
         [Route("logout")]
         public ActionResult Logout()
@@ -108,9 +89,9 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             try
             {
                 Response.Cookies.Append("JWT-TOKEN", "",new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None});
-                Response.Cookies.Append("refreshToken", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None });
-                Response.Cookies.Append(".AspNetCore.Antiforgery.bKA7B3_H_Uo", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None });
-            
+                Response.Cookies.Append(".AspNetCore.Antiforgery.eYcHwtxIITI", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1) , Secure = true, SameSite = SameSiteMode.None });
+                Response.Cookies.Append("UserSession", "", new CookieOptions { Expires = DateTime.Now.AddDays(-1), Secure = true, SameSite = SameSiteMode.None });
+
                 return Ok();
             }
             catch (Exception ex)

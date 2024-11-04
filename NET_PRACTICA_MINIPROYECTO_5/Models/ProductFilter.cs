@@ -2,8 +2,9 @@
 {
     public class ProductFilter
     {
-        public string CuantityFilter { get; set; } = string.Empty;
+        public string QuantityFilter { get; set; } = string.Empty;
         public string CategoryFilter { get; set; } = string.Empty;
         public string UserFilter { get; set; } = string.Empty;
+        public string IsOrder {  get; set; } = string.Empty;
     }
 }

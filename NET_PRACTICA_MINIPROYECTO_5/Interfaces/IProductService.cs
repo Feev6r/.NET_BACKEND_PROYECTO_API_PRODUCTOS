@@ -4,7 +4,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Interfaces
 {
     public interface IProductService
     {
-        public List<ProductWriting> GetProductsbyFilter(ProductFilter productFilter);
+        public List<ProductWriting> GetProductsByFilter(ProductFilter productFilter);
 
         public void CreateProducts(ProductReading products);
 
@@ -12,6 +12,15 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Interfaces
 
         public void DeleteProduct(int IdUser, int IdProduct);
 
+        public int TotalOrders(int idUser);
+
+        public decimal TotalPrice(int idUser);
+
+        public void DeleteOrder(int idUser, int idProduct);
+
+
+
         public Task<BlobObject> GetImages(int idProduct);
+        public void MakeOrder(OrderModel orderModel);
     }
 }

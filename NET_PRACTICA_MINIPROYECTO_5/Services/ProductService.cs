@@ -1,6 +1,5 @@
 ﻿using NET_PRACTICA_MINIPROYECTO_5.Interfaces;
 using NET_PRACTICA_MINIPROYECTO_5.Models;
-using System.Reflection;
 
 namespace NET_PRACTICA_MINIPROYECTO_5.Services
 {
@@ -23,7 +22,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
 
         public void CreateProducts(ProductReading products)
         {
-            //Upload the photo to Azure BlobStroge and get the uri to storage it
+            //Upload the photo to Azure BlobStorage and get the uri to storage it
             //string Uri = await _blobRepository.UploadBlobFile(products.BlobImage.FilePath, products.BlobImage.FileName);
 
             string url = _cloudinaryImgRepository.UploadImage(products.File!);
@@ -32,17 +31,18 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
 
         }
 
-        public List<ProductWriting> GetProductsbyFilter(ProductFilter productFilter)
+        public List<ProductWriting> GetProductsByFilter(ProductFilter productFilter)
         {
             try
             {
-                var Products = _productsRepository.GetAllbyFilter(productFilter.CuantityFilter, productFilter.CategoryFilter, productFilter.UserFilter);
+                bool isOrder = productFilter.IsOrder == "true";
+                var Products = _productsRepository.GetAllByFilter(productFilter.QuantityFilter, productFilter.CategoryFilter, productFilter.UserFilter, isOrder);
 
                 return Products;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Ocurred an error {ex.Message}");
+                throw new Exception($"Occurred an error {ex.Message}");
             }
 
         }
@@ -53,7 +53,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
             {
                 if (products.File != null) {
 
-                    string prevImagePublicId = _productsRepository.getImagePublicId(products.IdProduct);
+                    string prevImagePublicId = _productsRepository.GetImagePublicId(products.IdProduct);
                     _cloudinaryImgRepository.DeleteImage(prevImagePublicId);
 
                     string newImagePublicId = _cloudinaryImgRepository.UploadImage(products.File);
@@ -126,16 +126,35 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Services
         public void DeleteProduct(int IdUser, int IdProduct)
         {
 
-
             CanUserDeleteProduct(IdUser, IdProduct);
 
-            string ImagePublicId = _productsRepository.getImagePublicId(IdProduct);
+            string ImagePublicId = _productsRepository.GetImagePublicId(IdProduct);
             _cloudinaryImgRepository.DeleteImage(ImagePublicId);
 
             _productsRepository.Delete(IdProduct);
 
             //_blobRepository.DeleteBlob(ImageUri);
 
+        }
+
+        public int TotalOrders(int idUser)
+        {
+           return _productsRepository.GetTotalOrders(idUser);
+        }
+
+        public decimal TotalPrice(int idUser)
+        {
+            return _productsRepository.GetTotalPriceOrders(idUser);
+        }
+
+        public void DeleteOrder(int idUser, int idProduct)
+        {
+            _productsRepository.DeleteOrders(idUser, idProduct);
+        }
+
+        public void MakeOrder(OrderModel orderModel)
+        {
+           _productsRepository.CreateOrder(orderModel);
         }
     }
 }

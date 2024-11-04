@@ -10,9 +10,10 @@
         public int IdCategory { get; set; }
         public int Stock { get; set; }
         public decimal Price { get; set; }
-        public string ImageRute { get; set; } = string.Empty;
+        public string ImageRoute { get; set; } = string.Empty;
 
-
+        public int OrderQuantity { get; set; }
+        public int IdOrder { get; set; }
         public IFormFile? FormFile { get; set; }
 
 

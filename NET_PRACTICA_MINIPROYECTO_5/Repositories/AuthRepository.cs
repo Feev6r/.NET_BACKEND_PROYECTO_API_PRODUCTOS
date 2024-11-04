@@ -126,7 +126,6 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
         {
 
             string Query = "SELECT Password FROM Proyecto_1.dbo.users WHERE Name = @Name";
-
             string? Password;
 
             try

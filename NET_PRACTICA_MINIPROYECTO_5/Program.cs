@@ -48,7 +48,7 @@ cloudinary.Api.Secure = true;
 
 builder.Services.AddSingleton(cloudinary);
 builder.Services.AddScoped<IBlobRepository, BlobRepository>();
-builder.Services.AddScoped<IProductsRepository, ProducstRepository>();
+builder.Services.AddScoped<IProductsRepository, ProductsRepository>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
