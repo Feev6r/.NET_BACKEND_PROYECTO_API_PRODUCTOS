@@ -19,7 +19,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Repositories
         public List<ProductWriting> GetAllByFilter(string quantityFilter, string categoryFilter, string userFilter = "", bool isOrder = false)
         {
 
-            //MESSY CODE, si... no es lo mas eficiente ni lo mas ordenado, pero fue codigo que implemente cuando estaba emepezando (fue una bola de nieve) y tendria que refactorizar todo.
+            //Codigo claramente mejorable, desde el principio se hizo una bola de nieva, hace falta una refactorizacion.
             string filterUser = "";
             string queryOrder = "";
             string queryNumOrder = "";

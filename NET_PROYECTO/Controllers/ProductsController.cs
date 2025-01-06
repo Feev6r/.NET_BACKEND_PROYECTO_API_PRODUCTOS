@@ -10,6 +10,8 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
+
+        #region variables and injections 
         private readonly ILogger<ProductsController> _logger;
         private readonly IProductService _productService;
         private readonly ICloudinaryImgRepository _cloudinary;
@@ -27,6 +29,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             _cloudinary = cloudinary;
             _antiforgery = antiforgery;
         }
+        #endregion
 
         [HttpGet]
         [Route("show")]
@@ -174,7 +177,7 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
             {
                 int idUser = int.Parse(HttpContext.User.FindFirst("UserId")!.Value);
                 _productService.DeleteOrder(idUser, idOrder);
-                return Ok();
+                return Ok();                
             }
             catch 
             {
@@ -229,3 +232,4 @@ namespace NET_PRACTICA_MINIPROYECTO_5.Controllers
         #endregion
     }
 }
+
